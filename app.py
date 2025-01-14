@@ -201,7 +201,7 @@ def draw_lakes_visualization(image, lakes):
         color = colors[i % len(colors)]
         
         # 绘制轮廓
-        cv2.drawContours(result, [lake['contour']], 0, color, 2)
+        cv2.drawContours(result, [lake['contour']], 0, color, 1)
         
         # 绘制湖泊编号
         cv2.putText(
@@ -211,7 +211,7 @@ def draw_lakes_visualization(image, lakes):
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             color,
-            2
+            1
         )
     
     return result
@@ -378,7 +378,7 @@ def main():
                     file_name="overlay_result.png",
                     mime="image/png"
                 )
-                
+
             # 添加面积分布可视化
             if len(lakes) > 1:
                 st.markdown("### 冰湖面积分布")
