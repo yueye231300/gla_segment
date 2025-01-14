@@ -1,14 +1,12 @@
-torch>=2.0.0
-torchvision>=0.15.0
-streamlit>=1.24.0
-opencv-python>=4.8.0
-pillow>=9.5.0
-numpy>=1.24.0
-albumentations>=1.3.0
-segmentation-models-pytorch>=0.3.3
-scikit-image>=0.21.0
-tqdm>=4.65.0
-pandas>=2.0.0
-matplotlib>=3.7.0
-huggingface-hub
-plotly>=5.0.0
+streamlit==1.25.0  # Streamlit 用于前端界面
+torch==2.0.1       # PyTorch 主框架
+torchvision==0.15.2  # PyTorch 可视化工具
+opencv-python-headless==4.8.1.78  # OpenCV 无图形界面版本
+pillow==10.0.1  # PIL 图像处理库
+albumentations==1.3.1  # 数据增强库
+tqdm==4.66.1  # 进度条显示
+huggingface-hub==0.17.3  # 用于下载模型
+numpy==1.26.0  # 数值计算库
+scipy==1.11.3  # 科学计算库
+pandas==2.1.1  # 数据分析库
+plotly==5.17.0  # 绘制交互式图表
