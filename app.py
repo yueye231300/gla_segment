@@ -201,7 +201,7 @@ def draw_lakes_visualization(image, lakes):
         color = colors[i % len(colors)]
         
         # 绘制轮廓
-        cv2.drawContours(result, [lake['contour']], 0, color, 1)
+        cv2.drawContours(result, [lake['contour']], 0, color, 2)
         
         # 绘制湖泊编号
         cv2.putText(
@@ -272,7 +272,28 @@ def main():
         # 显示原始图片信息
         st.markdown("### 图片信息")
         st.write(f"原始尺寸: {image.size[0]} × {image.size[1]} 像素")
-    
+            # 添加使用说明
+        st.markdown("---")
+        with st.expander("使用说明"):
+            st.markdown("""
+            ### 使用步骤
+            1. 在左侧选择要使用的分割模型（UNet或DeepLabV3+）
+            2. 上传待分析的图片或使用示例图片
+            3. 上传图片可以使用天地图进行下载，下载之后可以得到像素对应的实际距离，便于得到准确的冰湖面积和周长
+            4. 系统将自动进行分割并显示结果
+            5. 对所有冰湖进行分割，并给出大于最小面积的冰湖的详细信息，包括面积，周长，长度，宽度和长宽比
+            6. 可以下载分割掩码、叠加效果和冰湖测量结果
+        
+            ### 注意事项
+            - 支持的图片格式：JPG、JPEG、PNG
+            - 建议上传清晰的冰湖图片以获得最佳效果
+            - 处理大图片时请耐心等待
+            - 不同模型可能适用于不同类型的冰湖，可以尝试不同模型以获得更好的效果
+        
+            ### 模型说明
+            - **UNet**: 经典的图像分割模型，适合边缘细节的提取
+            - **DeepLabV3+**: 改进的分割模型，具有更好的语义理解能力
+            """)
     with col2:
         st.subheader("分割结果")
         
@@ -414,25 +435,5 @@ def main():
             #     use_container_width=True
             # )
     
-    # 添加使用说明
-    st.markdown("---")
-    with st.expander("使用说明"):
-        st.markdown("""
-        ### 使用步骤
-        1. 在左侧选择要使用的分割模型（UNet或DeepLabV3+）
-        2. 上传待分析的图片或使用示例图片
-        3. 系统将自动进行分割并显示结果
-        4. 对所有冰湖进行分割，并给出
-        
-        ### 注意事项
-        - 支持的图片格式：JPG、JPEG、PNG
-        - 建议上传清晰的冰湖图片以获得最佳效果
-        - 处理大图片时请耐心等待
-        
-        ### 模型说明
-        - **UNet**: 经典的图像分割模型，适合边缘细节的提取
-        - **DeepLabV3+**: 改进的分割模型，具有更好的语义理解能力
-        """)
-
 if __name__ == "__main__":
     main()

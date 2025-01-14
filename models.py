@@ -228,7 +228,7 @@ class DeepLabV3Plus(nn.Module):
         low_level_feat = self.low_level_conv(low_level_feat)
         low_level_feat = self.low_level_bn(low_level_feat)
         low_level_feat = self.relu(low_level_feat)
-        
+        print(f"Low-level feature shape: {low_level_feat.shape}") 
         # 特征融合
         x = torch.cat([x, low_level_feat], dim=1)
         
@@ -239,41 +239,35 @@ class DeepLabV3Plus(nn.Module):
         x = F.interpolate(x, size=input_size, mode='bilinear', align_corners=True)
         
         # sigmoid激活
-        x = self.decoder(x)
-        x = F.interpolate(x, size=input_size, mode='bilinear', align_corners=True)
-        return torch.sigmoid(x).squeeze(1)
-    
-def predict_mask(model, image_path, device='cuda'):
-    """使用训练好的模型预测单张图像"""
-    model.eval()
-    
-    # 处理输入图像
-    if isinstance(image_path, str):
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    elif isinstance(image_path, Image.Image):
-        image = np.array(image_path)
-        # 确保是RGB格式
-        if len(image.shape) == 2:  # 灰度图
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        elif image.shape[2] == 4:  # RGBA图
-            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-    else:
-        image = image_path
-        if len(image.shape) == 2:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        elif image.shape[2] == 4:
-            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        out = self.sigmoid(x)
         
-    # 保存原始尺寸
-    original_size = image.shape[:2]
+        return out.squeeze(1) if out.shape[1] == 1 else out
+
+
+def preprocess_image(image, target_size=(400, 400)):
+    """
+    图像预处理：调整大小、归一化、转换为张量
+    Args:
+        image: 输入图像，PIL.Image 或 numpy.ndarray 格式
+        target_size: 目标输入大小 (height, width)
+    Returns:
+        处理后的图像张量
+    """
+    if isinstance(image, Image.Image):
+        image = np.array(image)
     
-    # 使用与训练时相同的预处理
+    # 转换为 RGB 格式
+    if len(image.shape) == 2:  # 灰度图
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    elif image.shape[2] == 4:  # RGBA 图
+        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+    
+    # 预处理操作
     transform = A.Compose([
-        A.Resize(height=400, width=400),
+        A.Resize(height=target_size[0], width=target_size[1]),
         A.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
+            mean=[0.485, 0.456, 0.406],  # ImageNet 的均值
+            std=[0.229, 0.224, 0.225],   # ImageNet 的标准差
             max_pixel_value=255.0
         ),
         ToTensorV2()
@@ -281,26 +275,79 @@ def predict_mask(model, image_path, device='cuda'):
     
     # 应用预处理
     transformed = transform(image=image)
-    input_tensor = transformed['image'].unsqueeze(0).to(device)
+    return transformed['image']
+
+
+def predict_mask_unet(model, image, device):
+    """
+    使用 UNet 模型进行预测
+    Args:
+        model: UNet 模型
+        image: 输入图像，PIL.Image 或 numpy.ndarray 格式
+        device: 运行设备（'cpu' 或 'cuda'）
+    Returns:
+        分割掩码，numpy.ndarray 格式，值为 0 或 255
+    """
+    model.eval()
+    original_size = image.size if isinstance(image, Image.Image) else image.shape[:2][::-1]
+    
+    # 图像预处理
+    input_tensor = preprocess_image(image).unsqueeze(0).to(device)
     
     # 预测
     with torch.no_grad():
         output = model(input_tensor)
-        if isinstance(output, torch.Tensor):
-            if output.ndim == 4:
-                output = output.squeeze(1)
-            pred_mask = output.squeeze().cpu().numpy()
-        else:
-            pred_mask = output
+        pred_mask = output.squeeze().cpu().numpy()  # 转为 numpy 格式
     
-    # 还原到原始尺寸并进行阈值处理
-    pred_mask = cv2.resize(
-        pred_mask, 
-        (original_size[1], original_size[0]),
-        interpolation=cv2.INTER_LINEAR
-    )
-    
-    # 使用更严格的阈值
-    pred_mask = (pred_mask > 0.5).astype(np.uint8) * 255
-    
+    # 恢复到原始尺寸并二值化
+    pred_mask = cv2.resize(pred_mask, original_size, interpolation=cv2.INTER_LINEAR)
+    pred_mask = (pred_mask > 0.5).astype(np.uint8) * 255  # 二值化
     return pred_mask
+
+def predict_mask_deeplabv3(model, image, device):
+    """
+    使用 DeepLabV3+ 模型进行预测
+    Args:
+        model: DeepLabV3+ 模型
+        image: 输入图像，PIL.Image 或 numpy.ndarray 格式
+        device: 运行设备（'cpu' 或 'cuda'）
+    Returns:
+        分割掩码，numpy.ndarray 格式，值为 0 或 255
+    """
+    model.eval()
+    original_size = image.size if isinstance(image, Image.Image) else image.shape[:2][::-1]
+    
+    # 图像预处理
+    input_tensor = preprocess_image(image).unsqueeze(0).to(device)
+    
+    # 预测
+    with torch.no_grad():
+        output = model(input_tensor)
+        pred_mask = output.squeeze().cpu().numpy()
+    
+    # 恢复到原始尺寸并二值化
+    pred_mask = cv2.resize(pred_mask, original_size, interpolation=cv2.INTER_LINEAR)
+    pred_mask = (pred_mask > 0.5).astype(np.uint8) * 255  # 二值化
+    return pred_mask
+
+def predict_mask(model, image, device):
+    """
+    统一的预测接口，根据模型类型调用不同的预测函数
+    Args:
+        model: UNet 或 DeepLabV3+ 模型
+        image: 输入图像，PIL.Image 或 numpy.ndarray 格式
+        device: 运行设备（'cpu' 或 'cuda'）
+    Returns:
+        分割掩码，numpy.ndarray 格式，值为 0 或 255
+    """
+    try:
+        model_name = model.__class__.__name__
+        if model_name == 'UNet':
+            return predict_mask_unet(model, image, device)
+        elif model_name == 'DeepLabV3Plus':
+            return predict_mask_deeplabv3(model, image, device)
+        else:
+            raise ValueError(f"Unsupported model type: {model_name}")
+    except Exception as e:
+        print(f"Error in predict_mask: {str(e)}")
+        raise
